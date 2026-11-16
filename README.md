@@ -22,9 +22,21 @@ docker compose config --quiet
 - 质量隔离：按原因码定位异常证据，入口 `/quarantine` 与 `GET /api/quarantine`。
 - 阈值复核：复算误差上下界与水量守恒，入口 `/reconcile` 与 `GET /api/reconcile`。
 - 批次归档：幂等重跑与版本复核，入口 `/batches` 与 `GET /api/batches`。
+- 调整重算：按新计量目录重算近七天并保留原账，入口 `/adjust` 与 `GET /api/adjust`。
 
 ## 演示
 选择样例后运行，核对业务结论与来源行。异常行保留原值和原因码。复核提交使用当前版本；旧版本返回 409。CSV证据只保留一个归档入口。
+
+## 调整重算与目录版本
+园区目录改版后，原账仍保留原编号、原数值与原证据，重算结果另存为调整批次：
+
+- `GET /api/catalogs`：目录版本列表、活动版本与启用事件。
+- `POST /api/catalogs/{version}/activate`：切换活动目录版本，可带 `expected_version` 防止并发覆盖；目录非法（如含环）时返回 422，活动版本保持原值并记录失败事件。
+- `POST /api/runs/{run_id}/adjustments`：按 `catalog_version`（省略则用活动版本）重算该原账最近七天，返回受影响分区、原账/修正残差与差额、改挂明细、全园水量。
+- `GET /api/adjustments/{id}`、`GET /api/adjustments/{id}/evidence.csv`：调整批次内容与证据。
+- `PATCH /api/adjustments/{id}/review`：记录调整结论，`revision` 过期返回 409。
+
+批次号由原账摘要、目录版本、窗口与阈值决定，同一调整重复提交不会新增批次。调整页 `/adjust?run_id=…&adjustment=…` 在同一页面展示上述内容。
 
 ## API
 - `POST /api/runs`：JSON 中可指定 `sample`、`text` 与 `params`。

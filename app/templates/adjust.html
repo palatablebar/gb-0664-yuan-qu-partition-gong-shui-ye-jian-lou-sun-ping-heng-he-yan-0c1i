@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block panels %}
+{% set adj = adjustment %}
+<section class="panel primary-panel">
+  <div class="panel__head"><h2>受影响分区 · 原账 vs 修正</h2><span>{{ adj.id if adj else 'ADJUST' }}</span></div>
+  <div class="panel__body flush">
+    {% if adj %}
+    <div class="table-scroll"><table class="ledger">
+      <thead><tr><th>分区</th><th>原残差 / m³</th><th>修正残差 / m³</th><th>差额 / m³</th><th>原结论</th><th>新结论</th><th>状态</th></tr></thead>
+      <tbody>{% for z in adj.zones %}<tr class="{{ 'affected' if z.affected else '' }}">
+        <td>{{ z.zone }}</td>
+        <td class="num">{{ z.original.residual }}</td>
+        <td class="num">{{ z.adjusted.residual }}</td>
+        <td class="num {{ 'bad' if z.delta_residual.startswith('-') else ('pass' if z.delta_residual != '0' and z.delta_residual != '0.000' else '') }}">{{ z.delta_residual }}</td>
+        <td>{{ z.original.status or '—' }}</td>
+        <td>{{ z.adjusted.status or '—' }}</td>
+        <td>{% if z.status_changed %}<b class="bad">结论变化</b>{% elif z.affected %}<span class="warn">数值变化</span>{% else %}<span class="muted">未受影响</span>{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="empty-note">尚未生成本次目录版本的调整批次。选择目标版本后点击「按当前目录重算」。</p>{% endif %}
+  </div>
+</section>
+
+<section class="panel comparison-panel">
+  <div class="panel__head"><h2>目录版本与窗口</h2><span>CATALOG</span></div>
+  <div class="panel__body">
+    {% if adj %}
+    <dl>
+      <dt>采用的目录版本</dt><dd>{{ adj.catalog_version }} · {{ adj.catalog_label }}</dd>
+      <dt>原账建档目录</dt><dd>{{ adj.base_catalog_version }}</dd>
+      <dt>目录状态</dt><dd>{{ '活动版本' if adj.catalog_active else '非活动（历史对照）' }}</dd>
+      <dt>目录 SHA256</dt><dd class="hash">{{ adj.catalog_sha256 }}</dd>
+      <dt>重算窗口（{{ adj.window.days }} 天）</dt><dd>{{ adj.window.start }} → {{ adj.window.end }}</dd>
+      <dt>参与重算采信行</dt><dd>{{ adj.accepted }} / 原账 {{ adj.input_count }} 行</dd>
+      <dt>原账运行号</dt><dd><a href="/calculate?run_id={{ adj.base_run }}">{{ adj.base_run }}</a></dd>
+      <dt>原账复核</dt><dd>版本 {{ adj.base_revision }} · {{ adj.base_decision }}</dd>
+      <dt>原账 SHA256</dt><dd class="hash">{{ adj.base_sha256 }}</dd>
+    </dl>
+    <h3>全园水量 · 近 {{ adj.window.days }} 天</h3>
+    {% for key,label in [('supply','供水'),('sales','售水'),('authorized','授权用水'),('residual','平衡残差')] %}
+    <div class="diff-row"><span>{{ label }} · 原账</span><b>{{ adj.totals.original[key] }} m³</b></div>
+    <div class="diff-row"><span>{{ label }} · 修正</span><b>{{ adj.totals.adjusted[key] }} m³</b></div>
+    {% endfor %}
+    <div class="diff-row"><span>水量守恒 · 原账 / 修正</span><b>{{ '守恒' if adj.totals.original.balanced else '失衡' }} / {{ '守恒' if adj.totals.adjusted.balanced else '失衡' }}</b></div>
+    <p class="muted-note">{{ adj.note }}{% if not adj.window_matches_account %} 原账含七天窗口之外的读数，窗口内原值按时间过滤后重列。{% endif %}</p>
+    <a class="btn" href="/api/adjustments/{{ adj.id }}/evidence.csv">导出调整证据</a>
+    {% else %}<p class="muted-note">原账不受影响；只有生成调整批次后才显示全园修正水量。</p>{% endif %}
+  </div>
+</section>
+
+<section class="panel primary-panel">
+  <div class="panel__head"><h2>改挂明细 · 原挂与新挂</h2><span>可复核证据</span></div>
+  <div class="panel__body flush">
+    {% if adj %}
+    <div class="table-scroll"><table class="ledger">
+      <thead><tr><th>来源行</th><th>计量记录</th><th>表号</th><th>原挂</th><th>新挂</th><th>计量类型</th><th>水量 / m³</th></tr></thead>
+      <tbody>{% for r in adj.reclassified %}<tr>
+        <td class="num">{{ r.line }}</td><td>{{ r.record_id }}</td><td>{{ r.meter }}</td>
+        <td>{{ r.recorded[:2]|join(' → ') }}</td><td><b>{{ r.target[:2]|join(' → ') }}</b></td>
+        <td>{{ r.target[2] }}</td>
+        <td class="num">{{ r.value_m3 }}</td>
+      </tr>{% else %}<tr><td colspan="7">该版本未改变任何计量边的挂接。</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if adj.orphans %}<div class="panel__body"><h3>未能归属（保留原因）</h3>{% for r in adj.orphans %}<div class="diff-row"><span>第 {{ r.line }} 行 · {{ r.record_id }}</span><b>{{ r.code }} · {{ r.detail }}</b></div>{% endfor %}</div>{% endif %}
+    <div class="panel__body">
+      <h3>夜间 00:00—05:00 修正前后</h3>
+      <div class="table-scroll"><table class="ledger"><thead><tr><th>分区</th><th>原夜间残差 / m³</th><th>修正夜间残差 / m³</th><th>差额 / m³</th></tr></thead>
+        <tbody>{% for z in adj.night_zones %}<tr class="{{ 'affected' if z.affected else '' }}"><td>{{ z.zone }}</td><td class="num">{{ z.original.residual }}</td><td class="num">{{ z.adjusted.residual }}</td><td class="num">{{ z.delta_residual }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    {% else %}<p class="empty-note">无记录。</p>{% endif %}
+  </div>
+</section>
+
+<section class="panel comparison-panel">
+  <div class="panel__head"><h2>批次与目录历史</h2><span>HISTORY</span></div>
+  <div class="panel__body">
+    <h3>同一调整（幂等）</h3>
+    <div class="list">
+      {% for item in adjustments %}<a class="list-row {{ 'sel' if adj and item.id==adj.id else '' }}" href="/adjust?run_id={{ data.manifest.run_id }}&adjustment={{ item.id }}">
+        <b>{{ item.id }}</b><span>{{ item.catalog_version }}</span><span>{{ item.affected|join('、') or '无受影响分区' }}</span>
+      </a>{% else %}<p class="muted-note">尚无调整批次。</p>{% endfor %}
+    </div>
+    <h3>目录版本</h3>
+    {% for item in catalogs %}
+    <div class="catalog-row {{ 'active' if item.active else '' }}">
+      <div><b>{{ item.version }}</b><span class="tag">{{ '活动' if item.active else item.status }}</span><small>{{ item.label }}</small></div>
+      {% if not item.active %}<button class="btn" data-activate="{{ item.version }}" data-expected="{{ active_catalog }}">启用</button>{% endif %}
+    </div>
+    {% endfor %}
+    <p class="muted-note">启用失败（如目录含环）时不切换活动版本，失败原因记入事件但保留旧版。</p>
+  </div>
+</section>
+
+<section class="panel adjust-controls">
+  <div class="panel__head"><h2>调整重算</h2><span>{{ adj.id if adj else '未生成' }}</span></div>
+  <div class="panel__body">
+    <p class="muted-note">原账 <b>{{ data.manifest.run_id }}</b> 保持原编号、原数值与原证据；重算只生成新的修正批次。</p>
+    <label>目标目录版本
+      <select id="catalog-select">
+        {% for item in catalogs %}<option value="{{ item.version }}" {{ 'selected' if (adj and item.version==adj.catalog_version) or (not adj and item.active) else '' }}>{{ item.version }} · {{ item.label }}{{ '（活动）' if item.active else '' }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>漏损阈值 / m³<input id="adjust-threshold" type="number" value="{{ adj.threshold if adj else '5' }}" min="0" step="0.1" required></label>
+    <button class="btn primary" id="adjust-run" data-run="{{ data.manifest.run_id }}">按该目录重算</button>
+    <p id="adjust-feedback" role="status" aria-live="polite"></p>
+    {% if adj %}
+    <form id="adjust-review-form" data-adjustment="{{ adj.id }}" data-revision="{{ adj.revision }}">
+      <select name="decision" aria-label="调整结论"><option>采用</option><option>退回</option></select>
+      <button class="btn">记录结论</button>
+    </form>
+    <p class="muted-note">调整批次复核：版本 {{ adj.revision }} · {{ adj.decision }}。结论只追加到调整批次，不改写原账。</p>
+    {% endif %}
+    <p class="muted-note">{{ problem or '' }}</p>
+  </div>
+</section>
+{% endblock %}

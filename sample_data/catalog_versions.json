@@ -1,0 +1,56 @@
+{
+  "versions": [
+    {
+      "version": "CAT-2026-11-A",
+      "label": "月初基准目录",
+      "status": "published",
+      "note": "与 sample_data/catalog.json 一致；AC 记为 A→C。",
+      "catalog": {
+        "IN-A": ["EXT", "A", "supply"],
+        "AB": ["A", "B", "transfer"],
+        "AC": ["A", "C", "transfer"],
+        "SA": ["A", "OUT", "sale"],
+        "SB": ["B", "OUT", "sale"],
+        "SC": ["C", "OUT", "sale"],
+        "UA": ["A", "OUT", "authorized"],
+        "UB": ["B", "OUT", "authorized"],
+        "UC": ["C", "OUT", "authorized"]
+      }
+    },
+    {
+      "version": "CAT-2026-11-B",
+      "label": "AC 计量边修正（B→C）",
+      "status": "published",
+      "note": "现场复核确认 AC 实际由 B 区流向 C 区；原账仍按 A→C 记录。",
+      "catalog": {
+        "IN-A": ["EXT", "A", "supply"],
+        "AB": ["A", "B", "transfer"],
+        "AC": ["B", "C", "transfer"],
+        "SA": ["A", "OUT", "sale"],
+        "SB": ["B", "OUT", "sale"],
+        "SC": ["C", "OUT", "sale"],
+        "UA": ["A", "OUT", "authorized"],
+        "UB": ["B", "OUT", "authorized"],
+        "UC": ["C", "OUT", "authorized"]
+      }
+    },
+    {
+      "version": "CAT-2026-11-C",
+      "label": "候选目录（草稿，含环）",
+      "status": "draft",
+      "note": "用于验证启用失败时旧版仍生效：AB 与新增 BA 构成 A→B→A 环。",
+      "catalog": {
+        "IN-A": ["EXT", "A", "supply"],
+        "AB": ["A", "B", "transfer"],
+        "BA": ["B", "A", "transfer"],
+        "AC": ["B", "C", "transfer"],
+        "SA": ["A", "OUT", "sale"],
+        "SB": ["B", "OUT", "sale"],
+        "SC": ["C", "OUT", "sale"],
+        "UA": ["A", "OUT", "authorized"],
+        "UB": ["B", "OUT", "authorized"],
+        "UC": ["C", "OUT", "authorized"]
+      }
+    }
+  ]
+}
